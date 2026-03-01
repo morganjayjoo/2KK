@@ -446,3 +446,67 @@ def cmd_batch_report(w3, contract, args) -> None:
         print("--prices must be comma-separated integers (E8)", file=sys.stderr)
         sys.exit(1)
     if len(sym_list) != len(price_list):
+        print("Symbol and price counts must match.", file=sys.stderr)
+        sys.exit(1)
+    pk = get_private_key()
+    if not pk:
+        print("Private key required.", file=sys.stderr)
+        sys.exit(1)
+    try:
+        from web3 import Web3
+        account = w3.eth.account.from_key(pk)
+    except Exception as e:
+        print(f"Invalid key: {e}", file=sys.stderr)
+        sys.exit(1)
+    hashes = []
+    for s in sym_list:
+        h = contract.functions.symbolHashFromString(s).call()
+        hashes.append(h)
+    fee_per = contract.functions.getReportFeeWei().call()
+    total_fee = fee_per * len(hashes)
+    tx_params = {"from": account.address, "gas": 150_000 * len(hashes)}
+    if total_fee > 0:
+        tx_params["value"] = total_fee
+    try:
+        tx = contract.functions.batchReportPrices(hashes, price_list).build_transaction(tx_params)
+        tx["nonce"] = w3.eth.get_transaction_count(account.address)
+        signed = w3.eth.account.sign_transaction(tx, account.key)
+        tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
+        print(f"Batch tx sent: {tx_hash.hex()}")
+        if args.wait:
+            receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
+            print(f"Block: {receipt['blockNumber']}, status: {receipt['status']}")
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+# -----------------------------------------------------------------------------
+# Commands: history
+# -----------------------------------------------------------------------------
+def cmd_history(w3, contract, args) -> None:
+    sym = args.symbol
+    limit = args.limit or 24
+    if not sym:
+        print("Provide --symbol", file=sys.stderr)
+        sys.exit(1)
+    try:
+        h = contract.functions.symbolHashFromString(sym).call()
+        prices, blocks = contract.functions.getPriceHistory(h, 0, limit).call()
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    if not prices:
+        print(f"No history for {sym}.")
+        return
+    print(f"\n  Price history for {sym} (last {len(prices)} points)\n")
+    for i in range(len(prices) - 1, -1, -1):
+        print(f"    block {blocks[i]:8}  price_e8={prices[i]:14}  ({fmt_price_e8(prices[i])})")
+    print()
+
+
+# -----------------------------------------------------------------------------
+# Commands: band-history
+# -----------------------------------------------------------------------------
+def cmd_band_history(w3, contract, args) -> None:
+    sym = args.symbol
