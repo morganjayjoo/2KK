@@ -638,3 +638,67 @@ def cmd_export(w3, contract, args) -> None:
             "current_band": cur_band,
             "band_name": band_name(cur_band),
             "min_price_e8": min_p,
+            "max_price_e8": max_p,
+            "history_length": hist_len,
+            "halted": halted,
+            "last_report_block": last_block,
+        })
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+    print(f"Exported to {out_path}")
+
+
+# -----------------------------------------------------------------------------
+# Commands: set-config (local config)
+# -----------------------------------------------------------------------------
+def cmd_set_config(args) -> None:
+    key = args.key
+    value = args.value
+    if not key:
+        print("Provide --key and --value", file=sys.stderr)
+        sys.exit(1)
+    if key == "contract_address":
+        set_config(key, value)
+        print(f"Set contract_address = {value}")
+    elif key == "rpc_url":
+        set_config(key, value)
+        print(f"Set rpc_url = {value}")
+    elif key == "symbol_map":
+        try:
+            mapping = json.loads(value)
+            set_config(key, mapping)
+            print(f"Set symbol_map = {mapping}")
+        except json.JSONDecodeError:
+            print("symbol_map must be JSON object, e.g. {\"0xabc...\": \"BTC\"}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        set_config(key, value)
+        print(f"Set {key} = {value}")
+
+
+# -----------------------------------------------------------------------------
+# Commands: add-symbol-label
+# -----------------------------------------------------------------------------
+def cmd_add_symbol_label(args) -> None:
+    hash_hex = args.hash
+    label = args.label
+    if not hash_hex or not label:
+        print("Provide --hash (bytes32 hex) and --label", file=sys.stderr)
+        sys.exit(1)
+    c = load_config()
+    m = c.get("symbol_map") or {}
+    m[hash_hex] = label
+    c["symbol_map"] = m
+    save_config(c)
+    print(f"Mapped {hash_hex} -> {label}")
+
+
+# -----------------------------------------------------------------------------
+# Helpers: validation and conversion
+# -----------------------------------------------------------------------------
+def price_float_to_e8(price: float) -> int:
+    """Convert human price to E8 integer."""
+    return int(round(price * E8))
+
+
+def price_e8_to_float(price_e8: int) -> float:
