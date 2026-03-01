@@ -510,3 +510,67 @@ def cmd_history(w3, contract, args) -> None:
 # -----------------------------------------------------------------------------
 def cmd_band_history(w3, contract, args) -> None:
     sym = args.symbol
+    limit = args.limit or 20
+    if not sym:
+        print("Provide --symbol", file=sys.stderr)
+        sys.exit(1)
+    try:
+        h = contract.functions.symbolHashFromString(sym).call()
+        bands, blocks = contract.functions.getBandHistory(h, 0, limit).call()
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    if not bands:
+        print(f"No band history for {sym}.")
+        return
+    print(f"\n  Band history for {sym} (last {len(bands)})\n")
+    for i in range(len(bands) - 1, -1, -1):
+        print(f"    block {blocks[i]:8}  band={band_name(bands[i])}")
+    print()
+
+
+# -----------------------------------------------------------------------------
+# Commands: hottest / coldest
+# -----------------------------------------------------------------------------
+def cmd_hottest(w3, contract, args) -> None:
+    try:
+        h, band, vol = contract.functions.getHottestSymbol().call()
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    hex_h = hash_to_hex(h) if hasattr(h, "hex") else str(h)
+    symbol_map = get_config("symbol_map") or {}
+    label = symbol_map.get(hex_h, hex_h[:20] + "..")
+    print(f"\n  Hottest: {label}  band={band_name(band)}  volatility_e8={vol} ({fmt_volatility_bps(vol)})\n")
+
+
+def cmd_coldest(w3, contract, args) -> None:
+    try:
+        h, band, vol = contract.functions.getColdestSymbol().call()
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    hex_h = hash_to_hex(h) if hasattr(h, "hex") else str(h)
+    symbol_map = get_config("symbol_map") or {}
+    label = symbol_map.get(hex_h, hex_h[:20] + "..")
+    print(f"\n  Coldest: {label}  band={band_name(band)}  volatility_e8={vol} ({fmt_volatility_bps(vol)})\n")
+
+
+# -----------------------------------------------------------------------------
+# Commands: watch
+# -----------------------------------------------------------------------------
+def cmd_watch(w3, contract, args) -> None:
+    interval = args.interval or 12
+    print(f"Refreshing every {interval}s (Ctrl+C to stop)\n")
+    try:
+        while True:
+            try:
+                hashes, bands, vols, prices = contract.functions.getHeatSummary().call()
+                seq = contract.functions.getGlobalReportSequence().call()
+                paused = contract.functions.platformPaused().call()
+            except Exception as e:
+                print(f"Error: {e}", file=sys.stderr)
+                time.sleep(interval)
+                continue
+            print("\033[2J\033[H", end="")
+            print(f"  Therminos heat (sequence={seq}, paused={paused})  refresh={interval}s\n")
