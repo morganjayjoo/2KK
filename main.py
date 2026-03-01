@@ -702,3 +702,67 @@ def price_float_to_e8(price: float) -> int:
 
 
 def price_e8_to_float(price_e8: int) -> float:
+    """Convert E8 integer to float."""
+    return price_e8 / E8
+
+
+def validate_address(addr: Optional[str]) -> bool:
+    if not addr:
+        return False
+    try:
+        from web3 import Web3
+        return Web3.is_address(addr)
+    except Exception:
+        return len(addr) == 42 and addr.startswith("0x")
+
+
+def validate_bytes32_hex(s: str) -> bool:
+    return isinstance(s, str) and len(s) == 66 and s.startswith("0x") and all(c in "0123456789abcdefABCDEF" for c in s[2:])
+
+
+# -----------------------------------------------------------------------------
+# ASCII thermometer bar
+# -----------------------------------------------------------------------------
+def band_bar(band: int, width: int = 20) -> str:
+    """Return a simple ASCII bar for band level (0-4)."""
+    if width < 5:
+        width = 5
+    fill = int((band + 1) / 5 * width)
+    fill = min(fill, width)
+    return "[" + "#" * fill + "." * (width - fill) + "]"
+
+
+def band_color_name(band: int) -> str:
+    """Label suitable for terminal color."""
+    names = ("cold", "mild", "warm", "hot", "critical")
+    return names[band] if 0 <= band < 5 else "unknown"
+
+
+# -----------------------------------------------------------------------------
+# Table formatting
+# -----------------------------------------------------------------------------
+def table_row(columns: list[str], widths: Optional[list[int]] = None) -> str:
+    if not widths:
+        widths = [max(8, len(c) + 2) for c in columns]
+    parts = []
+    for i, c in enumerate(columns):
+        w = widths[i] if i < len(widths) else len(c) + 2
+        parts.append(str(c)[: w - 2].ljust(w - 2)[: w - 2])
+    return "  ".join(parts)
+
+
+def table_sep(widths: list[int], char: str = "-") -> str:
+    return "  ".join(char * w for w in widths)
+
+
+# -----------------------------------------------------------------------------
+# Commands: status
+# -----------------------------------------------------------------------------
+def cmd_status(w3, contract, args) -> None:
+    try:
+        balance = contract.functions.getContractBalance().call()
+        paused = contract.functions.platformPaused().call()
+        seq = contract.functions.getGlobalReportSequence().call()
+        count = contract.functions.getSlotsCount().call()
+        fee = contract.functions.getReportFeeWei().call()
+    except Exception as e:
