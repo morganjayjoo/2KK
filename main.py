@@ -126,3 +126,67 @@ THRMINOS_ABI = [
 
 # -----------------------------------------------------------------------------
 # Config
+# -----------------------------------------------------------------------------
+def config_path() -> Path:
+    base = os.environ.get("TWO_KK_CONFIG_DIR") or os.path.expanduser("~")
+    return Path(base) / CONFIG_FILENAME
+
+
+def load_config() -> dict[str, Any]:
+    path = config_path()
+    if not path.exists():
+        return {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def save_config(data: dict[str, Any]) -> bool:
+    path = config_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+        return True
+    except OSError:
+        return False
+
+
+def get_config(key: str, default: Any = None) -> Any:
+    return load_config().get(key, default)
+
+
+def set_config(key: str, value: Any) -> None:
+    c = load_config()
+    c[key] = value
+    save_config(c)
+
+
+# -----------------------------------------------------------------------------
+# Web3
+# -----------------------------------------------------------------------------
+def get_rpc() -> str:
+    return get_config("rpc_url") or os.environ.get("TWO_KK_RPC") or DEFAULT_RPC
+
+
+def get_contract_address() -> Optional[str]:
+    return get_config("contract_address") or os.environ.get("TWO_KK_CONTRACT")
+
+
+def get_private_key() -> Optional[str]:
+    return get_config("private_key") or os.environ.get("TWO_KK_PRIVATE_KEY")
+
+
+def connect_web3():
+    try:
+        from web3 import Web3
+    except ImportError:
+        print("Install web3: pip install web3", file=sys.stderr)
+        sys.exit(1)
+    rpc = get_rpc()
+    w3 = Web3(Web3.HTTPProvider(rpc))
+    if not w3.is_connected():
+        raise ConnectionError(f"Cannot connect to RPC: {rpc}")
+    return w3
