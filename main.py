@@ -766,3 +766,67 @@ def cmd_status(w3, contract, args) -> None:
         count = contract.functions.getSlotsCount().call()
         fee = contract.functions.getReportFeeWei().call()
     except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    print("\n  Contract status")
+    print("  " + "-" * 40)
+    print(f"  Contract balance:  {fmt_eth(balance)}")
+    print(f"  Paused:            {paused}")
+    print(f"  Global report seq: {seq}")
+    print(f"  Thermometer count: {count}")
+    print(f"  Report fee:        {fee} wei ({fmt_eth(fee)})")
+    print("  " + "-" * 40)
+
+
+# -----------------------------------------------------------------------------
+# Commands: can-report
+# -----------------------------------------------------------------------------
+def cmd_can_report(w3, contract, args) -> None:
+    sym = args.symbol
+    if not sym:
+        print("Provide --symbol", file=sys.stderr)
+        sys.exit(1)
+    try:
+        h = contract.functions.symbolHashFromString(sym).call()
+        can = contract.functions.canReport(h).call()
+        halted = contract.functions.isHalted(h).call()
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    print(f"\n  Symbol: {sym}")
+    print(f"  Can report: {can}")
+    print(f"  Halted:     {halted}\n")
+
+
+# -----------------------------------------------------------------------------
+# Commands: thermometer (full slot)
+# -----------------------------------------------------------------------------
+def cmd_thermometer(w3, contract, args) -> None:
+    sym = args.symbol
+    if not sym:
+        print("Provide --symbol", file=sys.stderr)
+        sys.exit(1)
+    try:
+        h = contract.functions.symbolHashFromString(sym).call()
+        out = contract.functions.getThermometer(h).call()
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    (window_blocks, cooldown_blocks, last_report_block, current_band, current_volatility_e8,
+     current_price_e8, halted, registered_at_block, history_length) = out
+    print(f"\n  Thermometer: {sym}")
+    print("  " + "-" * 50)
+    print(f"  Window blocks:      {window_blocks}")
+    print(f"  Cooldown blocks:     {cooldown_blocks}")
+    print(f"  Last report block:   {last_report_block}")
+    print(f"  Current band:        {current_band} ({band_name(current_band)}) {band_bar(current_band)}")
+    print(f"  Current volatility: {current_volatility_e8} ({fmt_volatility_bps(current_volatility_e8)})")
+    print(f"  Current price E8:   {current_price_e8} ({fmt_price_e8(current_price_e8)})")
+    print(f"  Halted:              {halted}")
+    print(f"  Registered at block: {registered_at_block}")
+    print(f"  History length:     {history_length}")
+    print("  " + "-" * 50)
+
+
+# -----------------------------------------------------------------------------
+# Commands: slots (paginated)
