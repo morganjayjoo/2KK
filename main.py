@@ -1022,3 +1022,67 @@ def cmd_report_float(w3, contract, args) -> None:
 # -----------------------------------------------------------------------------
 # Commands: info
 # -----------------------------------------------------------------------------
+def cmd_info(w3, contract, args) -> None:
+    """Print app and contract connection info."""
+    rpc = get_rpc()
+    addr = get_contract_address()
+    try:
+        genesis = contract.functions.getGenesisHash().call()
+        deploy_block = contract.functions.getDeployBlock().call()
+        chain_id = w3.eth.chain_id
+    except Exception:
+        genesis = deploy_block = chain_id = None
+    print(f"\n  {APP_NAME} {VERSION}")
+    print("  " + "-" * 40)
+    print(f"  RPC:          {rpc[:50]}..." if len(rpc) > 50 else f"  RPC:          {rpc}")
+    print(f"  Contract:     {addr or '(not set)'}")
+    if chain_id is not None:
+        print(f"  Chain ID:     {chain_id}")
+    if deploy_block is not None:
+        print(f"  Deploy block: {deploy_block}")
+    if genesis is not None:
+        hex_genesis = genesis.hex() if hasattr(genesis, "hex") else str(genesis)
+        print(f"  Genesis hash: {hex_genesis[:24]}...")
+    print("  " + "-" * 40 + "\n")
+
+
+def _ensure_contract_and_rpc(args) -> None:
+    """Apply --rpc and --contract from args to config so later get_rpc/get_contract_address use them."""
+    if getattr(args, "rpc", None):
+        set_config("rpc_url", args.rpc)
+    if getattr(args, "contract", None):
+        set_config("contract_address", args.contract)
+
+
+# -----------------------------------------------------------------------------
+# Main
+# -----------------------------------------------------------------------------
+def main() -> None:
+    from web3 import Web3
+
+    parser = argparse.ArgumentParser(prog=APP_NAME, description="2KK — Therminos temperature checker CLI")
+    parser.add_argument("--version", action="version", version=f"{APP_NAME} {VERSION}")
+    parser.add_argument("--rpc", default=None, help="RPC URL (overrides config)")
+    parser.add_argument("--contract", default=None, help="Therminos contract address (overrides config)")
+    sub = parser.add_subparsers(dest="command", help="Commands")
+
+    p_summary = sub.add_parser("summary", help="Show heat summary for all thermometers")
+    p_summary.set_defaults(func=lambda w3, c, a: cmd_summary(w3, c, a))
+
+    p_band_stats = sub.add_parser("band-stats", help="Show band distribution")
+    p_band_stats.set_defaults(func=lambda w3, c, a: cmd_band_stats(w3, c, a))
+
+    p_symbol = sub.add_parser("symbol", help="Show details for one symbol")
+    p_symbol.add_argument("symbol", nargs="?", default=None)
+    p_symbol.set_defaults(func=lambda w3, c, a: cmd_symbol(w3, c, a))
+
+    p_list = sub.add_parser("list", help="List registered symbol hashes")
+    p_list.set_defaults(func=lambda w3, c, a: cmd_list(w3, c, a))
+
+    p_thresholds = sub.add_parser("thresholds", help="Show volatility band thresholds")
+    p_thresholds.set_defaults(func=lambda w3, c, a: cmd_thresholds(w3, c, a))
+
+    p_config_snap = sub.add_parser("config", help="Show contract config snapshot")
+    p_config_snap.set_defaults(func=lambda w3, c, a: cmd_config_snapshot(w3, c, a))
+
+    p_report = sub.add_parser("report", help="Report price (updater; requires private key)")
