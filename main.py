@@ -1150,3 +1150,65 @@ def main() -> None:
     p_price_at = sub.add_parser("price-at", help="Price at or before block")
     p_price_at.add_argument("symbol", nargs="?", default=None)
     p_price_at.add_argument("block", nargs="?", default=None)
+    p_price_at.set_defaults(func=lambda w3, c, a: cmd_price_at(w3, c, a))
+
+    p_compare = sub.add_parser("compare", help="Price change bps between two blocks")
+    p_compare.add_argument("symbol", nargs="?", default=None)
+    p_compare.add_argument("--from-block", type=int)
+    p_compare.add_argument("--to-block", type=int)
+    p_compare.set_defaults(func=lambda w3, c, a: cmd_compare(w3, c, a))
+
+    p_report_float = sub.add_parser("report-float", help="Report price using float (e.g. 45000.5)")
+    p_report_float.add_argument("symbol", nargs="?", default=None)
+    p_report_float.add_argument("price_float", nargs="?", default=None)
+    p_report_float.add_argument("--wait", action="store_true")
+    p_report_float.set_defaults(func=lambda w3, c, a: cmd_report_float(w3, c, a))
+
+    p_info = sub.add_parser("info", help="App and contract connection info")
+    p_info.set_defaults(func=lambda w3, c, a: cmd_info(w3, c, a))
+
+    p_set = sub.add_parser("set-config", help="Set local config key")
+    p_set.add_argument("key", nargs="?", default=None)
+    p_set.add_argument("value", nargs="?", default=None)
+    p_set.set_defaults(func=None)
+
+    p_add_label = sub.add_parser("add-symbol-label", help="Map hash to label in config")
+    p_add_label.add_argument("--hash", type=str)
+    p_add_label.add_argument("--label", type=str)
+    p_add_label.set_defaults(func=None)
+
+    args = parser.parse_args()
+
+    if args.command == "set-config":
+        args.key = getattr(args, "key", None) or (args.key if hasattr(args, "key") else None)
+        args.value = getattr(args, "value", None)
+        cmd_set_config(args)
+        return
+
+    if args.command == "add-symbol-label":
+        cmd_add_symbol_label(args)
+        return
+
+    if not args.command or not getattr(args, "func", None):
+        parser.print_help()
+        return
+
+    _ensure_contract_and_rpc(args)
+
+    try:
+        w3 = connect_web3()
+        contract = get_contract(w3)
+        args.func(w3, contract, args)
+    except ValueError as e:
+        print(f"Config error: {e}", file=sys.stderr)
+        sys.exit(1)
+    except ConnectionError as e:
+        print(f"Connection error: {e}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
