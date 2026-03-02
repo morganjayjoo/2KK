@@ -958,3 +958,67 @@ def cmd_alerts(w3, contract, args) -> None:
 
 # -----------------------------------------------------------------------------
 # Commands: price-at
+# -----------------------------------------------------------------------------
+def cmd_price_at(w3, contract, args) -> None:
+    sym = getattr(args, "symbol", None) or (args.symbol if hasattr(args, "symbol") else None)
+    block_num = getattr(args, "block", None)
+    if not sym or block_num is None:
+        print("Provide symbol and block (positional or --block)", file=sys.stderr)
+        sys.exit(1)
+    try:
+        block_num = int(block_num)
+        h = contract.functions.symbolHashFromString(sym).call()
+        price_e8, found = contract.functions.getPriceAtBlock(h, block_num).call()
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    if not found:
+        print(f"No price for {sym} at or before block {block_num}.")
+        return
+    print(f"\n  {sym} at block {block_num}: price_e8={price_e8} ({fmt_price_e8(price_e8)})\n")
+
+
+# -----------------------------------------------------------------------------
+# Commands: compare
+# -----------------------------------------------------------------------------
+def cmd_compare(w3, contract, args) -> None:
+    sym = getattr(args, "symbol", None)
+    from_block = getattr(args, "from_block", None)
+    to_block = getattr(args, "to_block", None)
+    if not sym or from_block is None or to_block is None:
+        print("Provide symbol, --from-block, --to-block", file=sys.stderr)
+        sys.exit(1)
+    try:
+        from_block = int(from_block)
+        to_block = int(to_block)
+        h = contract.functions.symbolHashFromString(sym).call()
+        change_bps, from_found, to_found = contract.functions.getPriceChangeBps(h, from_block, to_block).call()
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    print(f"\n  {sym}  block {from_block} -> {to_block}")
+    print(f"  From found: {from_found}, To found: {to_found}")
+    print(f"  Change (bps): {change_bps}\n")
+
+
+# -----------------------------------------------------------------------------
+# Commands: report with float price
+# -----------------------------------------------------------------------------
+def cmd_report_float(w3, contract, args) -> None:
+    sym = args.symbol
+    price_float = args.price_float
+    if not sym or price_float is None:
+        print("Provide --symbol and --price-float (e.g. 45000.5)", file=sys.stderr)
+        sys.exit(1)
+    try:
+        price_e8 = price_float_to_e8(float(price_float))
+    except (ValueError, TypeError):
+        print("--price-float must be a number.", file=sys.stderr)
+        sys.exit(1)
+    args.price = str(price_e8)
+    cmd_report(w3, contract, args)
+
+
+# -----------------------------------------------------------------------------
+# Commands: info
+# -----------------------------------------------------------------------------
