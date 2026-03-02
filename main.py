@@ -1086,3 +1086,67 @@ def main() -> None:
     p_config_snap.set_defaults(func=lambda w3, c, a: cmd_config_snapshot(w3, c, a))
 
     p_report = sub.add_parser("report", help="Report price (updater; requires private key)")
+    p_report.add_argument("symbol", nargs="?", default=None)
+    p_report.add_argument("price", nargs="?", default=None, help="Price in E8")
+    p_report.add_argument("--wait", action="store_true", help="Wait for tx receipt")
+    p_report.set_defaults(func=lambda w3, c, a: cmd_report(w3, c, a))
+
+    p_batch = sub.add_parser("batch-report", help="Batch report prices")
+    p_batch.add_argument("--symbols", type=str, help="Comma-separated symbols")
+    p_batch.add_argument("--prices", type=str, help="Comma-separated E8 prices")
+    p_batch.add_argument("--wait", action="store_true")
+    p_batch.set_defaults(func=lambda w3, c, a: cmd_batch_report(w3, c, a))
+
+    p_history = sub.add_parser("history", help="Show price history for symbol")
+    p_history.add_argument("symbol", nargs="?", default=None)
+    p_history.add_argument("--limit", type=int, default=24)
+    p_history.set_defaults(func=lambda w3, c, a: cmd_history(w3, c, a))
+
+    p_band_hist = sub.add_parser("band-history", help="Show band history for symbol")
+    p_band_hist.add_argument("symbol", nargs="?", default=None)
+    p_band_hist.add_argument("--limit", type=int, default=20)
+    p_band_hist.set_defaults(func=lambda w3, c, a: cmd_band_history(w3, c, a))
+
+    p_hottest = sub.add_parser("hottest", help="Show hottest symbol")
+    p_hottest.set_defaults(func=lambda w3, c, a: cmd_hottest(w3, c, a))
+
+    p_coldest = sub.add_parser("coldest", help="Show coldest symbol")
+    p_coldest.set_defaults(func=lambda w3, c, a: cmd_coldest(w3, c, a))
+
+    p_watch = sub.add_parser("watch", help="Watch heat summary (refresh loop)")
+    p_watch.add_argument("--interval", type=int, default=12)
+    p_watch.set_defaults(func=lambda w3, c, a: cmd_watch(w3, c, a))
+
+    p_export = sub.add_parser("export", help="Export summary to JSON")
+    p_export.add_argument("--output", "-o", default=None)
+    p_export.set_defaults(func=lambda w3, c, a: cmd_export(w3, c, a))
+
+    p_status = sub.add_parser("status", help="Contract status (balance, paused, sequence)")
+    p_status.set_defaults(func=lambda w3, c, a: cmd_status(w3, c, a))
+
+    p_can = sub.add_parser("can-report", help="Check if symbol can be reported")
+    p_can.add_argument("symbol", nargs="?", default=None)
+    p_can.set_defaults(func=lambda w3, c, a: cmd_can_report(w3, c, a))
+
+    p_thermo = sub.add_parser("thermometer", help="Full thermometer details for symbol")
+    p_thermo.add_argument("symbol", nargs="?", default=None)
+    p_thermo.set_defaults(func=lambda w3, c, a: cmd_thermometer(w3, c, a))
+
+    p_slots = sub.add_parser("slots", help="Paginated list of slots")
+    p_slots.add_argument("--offset", type=int, default=0)
+    p_slots.add_argument("--limit", type=int, default=20)
+    p_slots.set_defaults(func=lambda w3, c, a: cmd_slots(w3, c, a))
+
+    p_dash = sub.add_parser("dashboard", help="Dashboard-style box summary")
+    p_dash.set_defaults(func=lambda w3, c, a: cmd_dashboard(w3, c, a))
+
+    p_csv = sub.add_parser("export-csv", help="Export thermometers to CSV")
+    p_csv.add_argument("--output", "-o", default=None)
+    p_csv.set_defaults(func=lambda w3, c, a: cmd_export_csv(w3, c, a))
+
+    p_alerts = sub.add_parser("alerts", help="Hot/critical and halted symbols")
+    p_alerts.set_defaults(func=lambda w3, c, a: cmd_alerts(w3, c, a))
+
+    p_price_at = sub.add_parser("price-at", help="Price at or before block")
+    p_price_at.add_argument("symbol", nargs="?", default=None)
+    p_price_at.add_argument("block", nargs="?", default=None)
