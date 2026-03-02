@@ -830,3 +830,67 @@ def cmd_thermometer(w3, contract, args) -> None:
 
 # -----------------------------------------------------------------------------
 # Commands: slots (paginated)
+# -----------------------------------------------------------------------------
+def cmd_slots(w3, contract, args) -> None:
+    offset = args.offset or 0
+    limit = args.limit or 20
+    try:
+        total = contract.functions.getSlotsCount().call()
+        hashes = contract.functions.getRegisteredSymbols().call()
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    if offset >= len(hashes):
+        print("No slots in range.")
+        return
+    end = min(offset + limit, len(hashes))
+    subset = hashes[offset:end]
+    symbol_map = get_config("symbol_map") or {}
+    print(f"\n  Slots {offset + 1}-{end} of {total}\n")
+    for h in subset:
+        hex_h = hash_to_hex(h) if hasattr(h, "hex") else str(h)
+        label = symbol_map.get(hex_h, hex_h[:18] + "..")
+        try:
+            band = contract.functions.getCurrentBand(h).call()
+            vol = contract.functions.getVolatilityE8(h).call()
+            pr = contract.functions.getCurrentPriceE8(h).call()
+        except Exception:
+            band, vol, pr = 0, 0, 0
+        print(f"    {label:24}  band={band_name(band):10}  vol={fmt_volatility_bps(vol):12}  price={fmt_price_e8(pr)}")
+    print()
+
+
+# -----------------------------------------------------------------------------
+# Commands: dashboard (box summary)
+# -----------------------------------------------------------------------------
+def cmd_dashboard(w3, contract, args) -> None:
+    try:
+        hashes, bands, vols, prices = contract.functions.getHeatSummary().call()
+        cold, mild, warm, hot, critical = contract.functions.getBandStats().call()
+        seq = contract.functions.getGlobalReportSequence().call()
+        paused = contract.functions.platformPaused().call()
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    symbol_map = get_config("symbol_map") or {}
+    width = 70
+    print("\n  +" + "-" * (width - 2) + "+")
+    print("  | Therminos dashboard" + " " * (width - 24) + "|")
+    print("  | sequence=%s  paused=%s" % (seq, paused) + " " * (width - 35) + "|")
+    print("  +" + "-" * (width - 2) + "+")
+    print("  | Band distribution: cold=%s mild=%s warm=%s hot=%s critical=%s" % (cold, mild, warm, hot, critical) + " " * max(0, width - 65) + "|")
+    print("  +" + "-" * (width - 2) + "+")
+    for i, h in enumerate(hashes):
+        hex_h = hash_to_hex(h) if hasattr(h, "hex") else str(h)
+        label = symbol_map.get(hex_h, hex_h[:14] + "..")
+        band = bands[i] if i < len(bands) else 0
+        vol = vols[i] if i < len(vols) else 0
+        pr = prices[i] if i < len(prices) else 0
+        bar = band_bar(band, 12)
+        line = "  | %s  %s  %s  %s  %s" % (label[:18].ljust(18), band_name(band).ljust(10), fmt_volatility_bps(vol).ljust(10), fmt_price_e8(pr).ljust(12), bar)
+        print(line[: width + 4] + " " * max(0, width - len(line) + 4) + "|")
+    print("  +" + "-" * (width - 2) + "+\n")
+
+
+# -----------------------------------------------------------------------------
+# Commands: export-csv
